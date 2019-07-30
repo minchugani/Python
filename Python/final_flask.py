@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Jul 15 21:37:12 2019
+Created on Tue Jul 30 09:48:24 2019
 
 @author: srh001e
 """
@@ -10,14 +10,13 @@ import pandas as pd
 import json
 import numpy as np  
 from flask import Flask, jsonify, request
-def getdata(item_num):
+def getdata(item_num , quan):
     mydb = mysql.connector.connect(
-    host='rebatescoe.mysql.database.azure.com',
-    user='ganesha@rebatescoe',
+    host='localhost',
+    user='sunil',
     passwd='Sowj@nya94',
     database = 'rebates'
-)   
-    #item_number = 133791
+)
     cursor = mydb.cursor()
    # sql = "SELECT poamount FROM item_sales  where item_number = ? order by period desc"
     sql =  "SELECT poamount FROM item_sales  where item_number = "+item_num+" order by period desc"
@@ -51,7 +50,7 @@ def getdata(item_num):
     cur_quan_inc_per = (series.mean())*100
     expec_quan_temp = (x1[0]*cur_quan_inc_per)/100
     expec_quan = x1[0] + expec_quan_temp 
-    expec_rate = (expec_reb_amt/expec_quan)*100 
+    expec_rate = round((expec_reb_amt/expec_quan)*100 , 2)
     #sql_tierdata  = "SELECT from_value , to_value, tier_rate  FROM tier_results  where item_number =  ? " # dummy selct query 
     sql_tierdata  = "SELECT from_value , to_value, tier_rate  FROM tier_results  where item_number =  "+item_num+" " # dummy selct query 
     cursor.execute(sql_tierdata)
@@ -70,7 +69,7 @@ def getdata(item_num):
        if expec_quan > tiermed:
           rate_inc = expec_rate - value3
           if rate_inc > 0:
-              newrate = value3 - rate_inc
+              newrate = round(value3 - rate_inc , 2 )
               newfrom  = value1 
               newtoval = tiermed
               new_tier = []
@@ -88,15 +87,22 @@ def getdata(item_num):
     res = []
     for i  in pred_tier: 
      dictval = (dict(zip(fields,i)) )
+     from_val = dictval.get('from_value' , i)
+     to_val  = dictval.get('to_value' , i)
+     rate = dictval.get('tier_rate',   i )
+     quan1 = int(quan)
+     if quan1 > from_val and quan1 < to_val:
+        cal = quan1*rate
+        dictval.__setitem__('calval' , cal)
      res.append(dictval)
     return res
 app = Flask(__name__)
 @app.route('/result', methods=['GET'])
 def getpredtier():
         item_no =request.args.get('item_no', None)
-        pred_res = getdata(item_no)
+        quan =request.args.get('quan',None)
+        pred_res = getdata(item_no ,quan)
         return jsonify(pred_res)
         return item_no
 if __name__ == '__main__':
    app.run(debug=True)
-    
